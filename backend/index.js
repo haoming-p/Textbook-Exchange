@@ -55,7 +55,7 @@ app.post('/auth', async(req, res) =>{
 app.get('/search/isbn/:isbn', async(req,res) => {
     try {
         const isbn = req.params.isbn.replace(/[-\s]/g, '');
-        console.log('1. Received ISBN:', isbn);
+        //console.log('1. Received ISBN:', isbn);
         
         // Check database first
         const [existingBooks] = await pool.execute(
@@ -109,7 +109,7 @@ app.get('/search/isbn/:isbn', async(req,res) => {
             edition: bookData.edition_name
         };
 
-        console.log('Book data:', book);
+        //console.log('Book data:', book);
         
         res.json({
             success: true,
@@ -127,6 +127,99 @@ app.get('/search/isbn/:isbn', async(req,res) => {
     }
 });
 
+
+//sell
+app.post('/sell',async(req,res) => {
+    try{
+        const{
+            isbn,
+            price,
+            condition_percent,
+            deal_method,
+            notes,
+            contact,
+            user_id
+        } = req.body;
+        
+        //check if book exists
+        let [existingBooks] = await pool.execute(
+            'SELECT book_id FROM books WHERE isbn = ?',
+            [isbn]
+        )
+        let book_id;
+        if (existingBooks.length === 0){
+            //fetch from open liberary, same to isbn search
+            const response = await fetch(
+                `https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&format=json&jscmd=data`
+            );
+            
+            if(!response.ok) {
+                throw new Error('Failed to fetch from Open Library API');
+            }
+    
+            const data = await response.json();
+            const bookData = data[`ISBN:${isbn}`];
+    
+            if(!bookData) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Book not found'
+                });
+            }
+            //db,create book if needed
+            const [insertResult] = await pool.execute(
+                `INSERT INTO books(
+                    isbn,
+                    title,
+                    authors,
+                    publish_date,
+                    publisher,
+                    cover_url
+                ) VALUES(?, ?, ?, ?, ?, ?)`,
+                [
+                    isbn,
+                    bookData.title,
+                    bookData.authors ? bookData.authors.map(author => author.name).join(', ') : null,
+                    bookData.publish_date || null,
+                    bookData.publishers ? bookData.publishers[0].name : null,
+                    bookData.cover ? bookData.cover.large : null
+                ]
+            );
+            book_id = insertResult.insertId;
+            //console.log('insert to table')
+        }else{
+            book_id = existingBooks[0].book_id;
+        }
+
+        //db,create listing
+        const[listingResult] = await pool.execute(
+            `INSERT INTO listings (
+                book_id,
+                user_id,
+                price,
+                condition_percent,
+                deal_method,
+                notes
+            ) VALUES (?, ?, ?, ?, ?, ?)`,
+            [book_id, user_id, price, condition_percent, deal_method, notes]
+        );
+        console.log('insert to listing')
+        console.log(listingResult)
+        //return
+        res.json({
+            success: true,
+            message: 'Listing created successfully',
+            listing_id: listingResult.insertId
+        });
+    }catch(err){
+        console.log('backend, error creating listing', err);
+        res.status(500).json({
+            success: false,
+            message: 'fail to create listing',
+            error: err.message
+        })
+    }
+})
 app.listen(8000,() =>{
     console.log('connected to backend')
 })

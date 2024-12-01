@@ -24,8 +24,11 @@ CREATE TABLE IF NOT EXISTS listings (
     book_id INT NOT NULL,
     user_id INT NOT NULL,
     price DECIMAL(10,2),
-    `condition` VARCHAR(50),
+    condition_percent INT NOT NULL,
+    deal_method VARCHAR(50) DEFAULT 'in-person' NOT NULL,
+    notes TEXT, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (book_id) REFERENCES books(book_id),
-    FOREIGN KEY (user_id) REFERENCES users(user_id)
+    FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT valid_condition CHECK (condition_percent BETWEEN 0 AND 100)
 );
