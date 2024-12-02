@@ -57,25 +57,42 @@ app.get('/search/isbn/:isbn', async(req,res) => {
         const isbn = req.params.isbn.replace(/[-\s]/g, '');
         //console.log('1. Received ISBN:', isbn);
         
-        // Check database first
+        // Check database first, if has, return book info, listing info
         const [existingBooks] = await pool.execute(
-            `SELECT b.*, 
-                GROUP_CONCAT(l.user_id) as seller_ids
-                FROM books b
-                LEFT JOIN listings l ON b.book_id = l.book_id
-                WHERE b.isbn = ?
-                GROUP BY b.book_id`,
+            `SELECT 
+                b.*,
+                JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'listing_id', l.listing_id,
+                        'user_id', l.user_id,
+                        'user_name', u.user_name,
+                        'price', l.price,
+                        'condition_percent', l.condition_percent,
+                        'deal_method', l.deal_method,
+                        'notes', l.notes,
+                        'created_at', l.created_at
+                    )
+                ) as listings
+            FROM books b
+            LEFT JOIN listings l ON b.book_id = l.book_id
+            LEFT JOIN users u ON l.user_id = u.user_id
+            WHERE b.isbn = ?
+            GROUP BY b.book_id`,
             [isbn]
         );
 
         if(existingBooks.length > 0) {
             const book = existingBooks[0];
-            const sellers = book.seller_ids ? book.seller_ids.split(',').map(id => ({ user_id: id })) : [];
+            let listings = book.listings;
+            listings = listings[0] === null ? [] : listings;
+            const { listings: _, ...bookData } = book;
+            console.log(listings)
+            
             return res.json({
                 success: true,
                 message: 'books found in database',
-                book,
-                sellers,
+                book: bookData,
+                listings
             });
         }
 
