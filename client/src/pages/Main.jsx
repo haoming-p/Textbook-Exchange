@@ -2,27 +2,28 @@ import React, { useState } from 'react'
 import Card from '../components/Card'
 import Modal from '../components/Modal';
 import ContactSellerForm from '../components/ContactSellerForm';
+import SellerForm from '../components/SellerForm';
+
 
 const Main = () => {
-    const[value, setValue] = useState('');
-    const[book, setBook] = useState(null);
+    const [value, setValue] = useState('');
+    const [book, setBook] = useState(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('')
     const [listings, setListings] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedListing, setSelectedListing] = useState(null);
+    const [modalContent, setModalContent] = useState(null);
 
+    //input
     const handleChange = (e) =>{
         setValue(e.target.value);
         setBook(null);
         setError('');
         setListings([]);
     }
-    <ContactSellerForm 
-    listing={selectedListing}
-    book={book}
-    />
 
+    //search
     const handleSubmit = async (e) =>{
         e.preventDefault();
         setIsLoading(true);
@@ -38,8 +39,8 @@ const Main = () => {
                 throw new Error(data.message || 'frontend, search/isbn fails')
             }
             if(data.success){
-                console.log('Received book data:', data.book);
                 setBook(data.book);
+                //exist sellers
                 if (data.listings) {
                     setListings(data.listings);
                 }
@@ -54,60 +55,103 @@ const Main = () => {
         }
     }
 
+    //click seller card, open modal to see more info
     const handleCardClick = (listing) => {
         setSelectedListing(listing);
+        setModalContent('contact');
         setIsModalOpen(true);
     }
 
+    //click sell, open modal to input more info
+    const handleSellClick = () =>{
+        setModalContent('sell');
+        setIsModalOpen(true)
+    }
+
     return (
-        <div>
+        <div className='min-h-screen bg-base-200 p-4'>
             {/* search */}
-            <form onSubmit={handleSubmit}>
+            <form 
+                className='flex flex-col gap-4 w-full max-w-md mx-auto font-medium'
+                onSubmit={handleSubmit}>
                 <input 
+                    className="input input-bordered input-lg w-full"
                     type="text" 
                     placeholder='Enter ISBN (e.g., 9780134093413)'
                     onChange={handleChange}
                     value = {value}
                     disabled={isLoading}
                 />
-                <button 
+                <button className='btn btn-primary btn-lg'
                     type='submit'
                     disabled={!value.trim() || isLoading}
                     >{isLoading ? 'Searching...' : 'Search'}
                 </button>      
             </form>
 
-            {/* book */}
+            {/* book, with sell button */}
             {book && (
-                <ul>
-                    <li>Title: {book.title}</li>
-                    {book.authors && <li>Authors: {book.authors}</li>}
-                    {book.publisher && <li>Publisher: {book.publisher}</li>}
-                    {book.publish_date && <li>Published: {book.publish_date}</li>}
-                    {book.number_of_pages && <li>Pages: {book.number_of_pages}</li>}
-                    <li>ISBN: {book.isbn}</li>
-                    {book.cover_url && (<li> <img src={book.cover_url} alt={book.title} /></li>)}
-                </ul>
+                <div className='card bg-base-200 shadow-xl p-6 max-w-4xl mx-auto items-center'>
+                    <div>
+                        {book.cover_url && (
+                            <figure>
+                                <img src={book.cover_url} alt={book.title} className="max-w-xs rounded-lg shadow-md" />
+                            </figure>
+                        )}
+                    </div>
+                    
+                    <div>
+                        <h2 className="text-2xl font-bold">{book.title}</h2>
+                        <ul className="mt-4 space-y-2">
+                            <li>ISBN: {book.isbn}</li>
+                            {book.publisher && <li>Publisher: {book.publisher}</li>}
+                            {book.authors && <li>Authors: {book.authors}</li>}
+                        </ul>
+                    </div>
+            
+                    <div className='lex justify-center mt-6'>
+                        <button 
+                            className='btn btn-primary'
+                            onClick={handleSellClick}>
+                            Sell this book
+                        </button>
+                    </div>   
+                </div>
             )}
 
-            {/* seller,listings */}
-            {listings.map(listing => (
-                <Card 
-                    key={listing.listing_id}
-                    listing={listing}
-                    onClick={handleCardClick}
-                />
-            ))}
-            {listings.length === 0 && <p>No sellers available for this book</p>}
+            {/* seller listings */}
+            {book && !isLoading && (
+                listings.length > 0 ? (
+                    <div className="container mx-auto px-4 py-8">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {listings.map(listing => (
+                                <div key={listing.listing_id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                                    <Card 
+                                        listing={listing}
+                                        onClick={handleCardClick}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ) : (
+                    <p>No sellers available for this book</p>
+                )
+            )}
                 
-            {/* Modal */}
+            {/* Modal*/}
             <Modal 
                 isOpen={isModalOpen} 
                 onClose={() => setIsModalOpen(false)}
             >
-                {selectedListing && (
+                {modalContent === 'contact' && (
                     <ContactSellerForm 
                         listing={selectedListing}
+                        book={book}
+                    />
+                )}
+                {modalContent === 'sell' && (
+                    <SellerForm
                         book={book}
                     />
                 )}

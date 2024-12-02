@@ -19,14 +19,17 @@ CREATE TABLE IF NOT EXISTS books (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+--seller&book
 CREATE TABLE IF NOT EXISTS listings (
     listing_id INT PRIMARY KEY AUTO_INCREMENT,
     book_id INT NOT NULL,
     user_id INT NOT NULL,
+    contact_info VARCHAR(255), 
     price DECIMAL(10,2),
-    condition_percent INT NOT NULL,
+    condition_percent,
     deal_method VARCHAR(50) DEFAULT 'in-person' NOT NULL,
     notes TEXT, 
+    listing_photos TEXT, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (book_id) REFERENCES books(book_id),
     FOREIGN KEY (user_id) REFERENCES users(user_id),
