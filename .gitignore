@@ -4,6 +4,9 @@ new:
 sellers:
 9780596517748
 
+.DS_Store
+**/.DS_Store
+
 # Logs
 logs
 *.log
