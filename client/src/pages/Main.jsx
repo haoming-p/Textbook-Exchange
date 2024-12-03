@@ -68,6 +68,23 @@ const Main = () => {
         setIsModalOpen(true)
     }
 
+    //refreshListing
+    const refreshListings = async () => {
+        try {
+            const response = await fetch(`http://localhost:8000/search/isbn/${book.isbn}`);
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.message || 'Failed to refresh listings');
+            }
+            if (data.success) {
+                setListings(data.listings || []);
+            }
+        } catch (err) {
+            console.error('Error refreshing listings:', err);
+        }
+    };
+
     return (
         <div className='min-h-screen bg-base-200 p-4'>
             {/* search */}
@@ -121,22 +138,24 @@ const Main = () => {
 
             {/* seller listings */}
             {book && !isLoading && (
-                listings.length > 0 ? (
-                    <div className="container mx-auto px-4 py-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {listings.map(listing => (
-                                <div key={listing.listing_id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
-                                    <Card 
-                                        listing={listing}
-                                        onClick={handleCardClick}
-                                    />
-                                </div>
-                            ))}
+            <div className="container mx-auto px-4 py-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {listings.length > 0 ? (
+                        listings.map(listing => (
+                            <div key={listing.listing_id} className="bg-white rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">
+                                <Card 
+                                    listing={listing}
+                                    onClick={() => handleCardClick(listing)}
+                                />
+                            </div>
+                        ))
+                    ) : (
+                        <div className="col-span-full">
+                            <Card listing={null} />
                         </div>
-                    </div>
-                ) : (
-                    <p>No sellers available for this book</p>
-                )
+                    )}
+                </div>
+            </div>
             )}
                 
             {/* Modal*/}
@@ -148,11 +167,16 @@ const Main = () => {
                     <ContactSellerForm 
                         listing={selectedListing}
                         book={book}
+                        onClose={() => setIsModalOpen(false)}
                     />
                 )}
                 {modalContent === 'sell' && (
                     <SellerForm
-                        book={book}
+                        isbn={book.isbn}
+                        onClose = { () => {
+                            refreshListings();
+                            setIsModalOpen(false);
+                        }}
                     />
                 )}
             </Modal>

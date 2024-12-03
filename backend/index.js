@@ -148,22 +148,25 @@ app.get('/search/isbn/:isbn', async(req,res) => {
 //sell
 app.post('/sell',async(req,res) => {
     try{
-        const{
+        const {
             isbn,
             price,
             condition_percent,
             deal_method,
+            contact_info,
             notes,
-            contact,
             user_id
         } = req.body;
+        console.log('Received request body:', req.body);
         
         //check if book exists
         let [existingBooks] = await pool.execute(
-            'SELECT book_id FROM books WHERE isbn = ?',
+            'SELECT book_id, title FROM books WHERE isbn = ?',
             [isbn]
         )
         let book_id;
+        let book_name;
+
         if (existingBooks.length === 0){
             //fetch from open liberary, same to isbn search
             const response = await fetch(
@@ -183,6 +186,7 @@ app.post('/sell',async(req,res) => {
                     message: 'Book not found'
                 });
             }
+            book_name = bookData.title  || null;;
             //db,create book if needed
             const [insertResult] = await pool.execute(
                 `INSERT INTO books(
@@ -195,7 +199,7 @@ app.post('/sell',async(req,res) => {
                 ) VALUES(?, ?, ?, ?, ?, ?)`,
                 [
                     isbn,
-                    bookData.title,
+                    book_name,
                     bookData.authors ? bookData.authors.map(author => author.name).join(', ') : null,
                     bookData.publish_date || null,
                     bookData.publishers ? bookData.publishers[0].name : null,
@@ -206,28 +210,52 @@ app.post('/sell',async(req,res) => {
             //console.log('insert to table')
         }else{
             book_id = existingBooks[0].book_id;
+            book_name = existingBooks[0].title;
         }
+        // Debug log
+        console.log('Values being inserted:', {
+            book_id,
+            user_id,
+            price,
+            condition_percent,
+            deal_method,
+            contact_info,
+            notes,
+            book_name
+        });
 
         //db,create listing
-        const[listingResult] = await pool.execute(
+        const [listingResult] = await pool.execute(
             `INSERT INTO listings (
                 book_id,
                 user_id,
                 price,
                 condition_percent,
                 deal_method,
-                notes
-            ) VALUES (?, ?, ?, ?, ?, ?)`,
-            [book_id, user_id, price, condition_percent, deal_method, notes]
+                contact_info,
+                notes,
+                book_name
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                book_id, 
+                user_id, 
+                price, 
+                condition_percent, 
+                deal_method || 'in-person', 
+                contact_info, 
+                notes || null,
+                book_name || null
+            ]
         );
-        console.log('insert to listing')
-        console.log(listingResult)
+
+        console.log('Listing created:', listingResult);
         //return
         res.json({
             success: true,
             message: 'Listing created successfully',
             listing_id: listingResult.insertId
         });
+
     }catch(err){
         console.log('backend, error creating listing', err);
         res.status(500).json({
@@ -237,6 +265,7 @@ app.post('/sell',async(req,res) => {
         })
     }
 })
+
 app.listen(8000,() =>{
     console.log('connected to backend')
 })
